@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Profile \u00b7 CampusConnect</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="nav" id="nav"></header>
+  <main class="container narrow" id="app"><p>Loading profile\u2026</p></main>
+
+  <script src="/js/app.js"></script>
+  <script>
+    (async () => {
+      try {
+        const u = await requireAuth("profile");
+        document.getElementById("app").innerHTML = `
+          <h1>Profile</h1>
+          <div class="card stack">
+            <dl>
+              <dt>Name</dt><dd>${esc(u.name)}</dd>
+              <dt>Email</dt><dd>${esc(u.email)}</dd>
+              <dt>Role</dt><dd>${u.role === "admin" ? "Admin" : "Student"}</dd>
+              <dt>Joined</dt><dd>${fmtDate(u.created_at)}</dd>
+            </dl>
+            <div>
+              <button class="btn secondary" type="button" onclick="logout()">
+                ${icon("logout")} Log out
+              </button>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        document.getElementById("app").innerHTML = stateHtml("alert",
+          "We couldn't load your profile. " + err.message,
+          "Try again", "/profile.html", true);
+      }
+    })();
+  </script>
+</body>
+</html>

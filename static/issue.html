@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Issue \u00b7 CampusConnect</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="nav" id="nav"></header>
+  <main class="container" id="app"><p>Loading issue\u2026</p></main>
+
+  <script src="/js/app.js"></script>
+  <script>
+    (async () => {
+      const me = await requireAuth("");
+      const isAdmin = me.role === "admin";
+      const app = document.getElementById("app");
+      const id = new URLSearchParams(location.search).get("id");
+
+      let issue;
+      try {
+        if (!/^\d+$/.test(id || "")) throw new Error("This issue link is not valid.");
+        issue = await api("/issues/" + id);
+      } catch (err) {
+        app.innerHTML = stateHtml("alert", err.message,
+          "Back to dashboard", "/dashboard.html", true);
+        return;
+      }
+
+      document.title = issue.title + " \u00b7 CampusConnect";
+
+      const draw = () => {
+        app.innerHTML = `
+          <p style="margin-bottom:16px">
+            <a href="/dashboard.html" style="text-decoration:none;color:var(--muted)">
+              ${icon("back")} Back to dashboard
+            </a>
+          </p>
+
+          <div class="card stack">
+            <div class="row between">
+              <h1 style="margin:0">${esc(issue.title)}</h1>
+              ${badge(issue.status)}
+            </div>
+            <p class="desc" style="margin:0">${esc(issue.description)}</p>
+            <dl>
+              <dt>Category</dt><dd>${esc(issue.category)}</dd>
+              <dt>Reported by</dt><dd>${esc(issue.author)}${isAdmin && issue.author_id ? ` \u00b7 <a href="/messages.html?student=${issue.author_id}">Message</a>` : ""}</dd>
+              <dt>Submitted</dt><dd>${fmtDate(issue.created_at)}</dd>
+              <dt>Last updated</dt><dd>${fmtDate(issue.updated_at)}</dd>
+            </dl>
+          </div>
+
+          <div class="card stack" style="margin-top:16px">
+            <h2>${isAdmin ? "Notes" : "Notes from admin"}</h2>
+            ${issue.notes && issue.notes.length
+              ? issue.notes.map((n) => `<div class="note">
+                  <p>${esc(n.body)}</p>
+                  <span class="tag">${esc(n.author)} \u00b7 ${fmtDate(n.created_at)}</span>
+                </div>`).join("")
+              : `<p class="tag" style="margin:0">${isAdmin ? "No notes yet." : "No notes from the admin yet."}</p>`}
+            ${isAdmin ? `
+              <div id="note-error" class="alert" role="alert" hidden></div>
+              <div>
+                <label for="note">Leave a note (visible to ${esc(issue.author)})</label>
+                <textarea id="note" maxlength="1000"></textarea>
+              </div>
+              <div><button class="btn" id="add-note" type="button">Add note</button></div>` : ""}
+          </div>
+
+          ${isAdmin ? `
+          <div class="card stack" style="margin-top:16px">
+            <h2>Update status</h2>
+            <div id="error" class="alert" role="alert" hidden></div>
+            <p id="ok" class="success" role="status" hidden>Status updated.</p>
+            <div class="row">
+              <div style="flex:1;min-width:160px">
+                <label for="status">Status</label>
+                <select id="status">
+                  ${["Open", "In Progress", "Resolved"]
+                    .map((s) => `<option ${s === issue.status ? "selected" : ""}>${s}</option>`)
+                    .join("")}
+                </select>
+              </div>
+              <button class="btn" id="save" type="button" style="align-self:flex-end">
+                Save status
+              </button>
+            </div>
+          </div>` : ""}
+        `;
+
+        if (!isAdmin) return;
+
+        document.getElementById("add-note").onclick = async (e) => {
+          const btn = e.currentTarget;
+          const err = document.getElementById("note-error");
+          const body = document.getElementById("note").value.trim();
+          err.hidden = true;
+          if (!body) {
+            err.innerHTML = icon("alert") + "<span>Write a note first.</span>";
+            err.hidden = false;
+            return;
+          }
+          btn.disabled = true;
+          try {
+            await api("/issues/" + id + "/notes", { method: "POST", body: { body } });
+            issue = await api("/issues/" + id);
+            draw();
+          } catch (ex) {
+            err.innerHTML = icon("alert") + `<span>${esc(ex.message)}</span>`;
+            err.hidden = false;
+            btn.disabled = false;
+          }
+        };
+
+        document.getElementById("save").onclick = async (e) => {
+          const btn = e.currentTarget;
+          const err = document.getElementById("error");
+          const ok = document.getElementById("ok");
+          err.hidden = true; ok.hidden = true; btn.disabled = true;
+          try {
+            await api("/issues/" + id + "/status", {
+              method: "PATCH",
+              body: { status: document.getElementById("status").value },
+            });
+            issue = await api("/issues/" + id);
+            draw();
+            document.getElementById("ok").hidden = false;
+          } catch (ex) {
+            err.innerHTML = icon("alert") + `<span>${esc(ex.message)}</span>`;
+            err.hidden = false;
+            btn.disabled = false;
+          }
+        };
+      };
+
+      draw();
+    })();
+  </script>
+</body>
+</html>

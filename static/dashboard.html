@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard \u00b7 CampusConnect</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="nav" id="nav"></header>
+  <main class="container" id="app"><p>Loading issues\u2026</p></main>
+
+  <script src="/js/app.js"></script>
+  <script>
+    (async () => {
+      const me = await requireAuth("dashboard");
+      const isAdmin = me.role === "admin";
+      const app = document.getElementById("app");
+
+      let issues;
+      try {
+        issues = await api("/issues");
+      } catch (err) {
+        app.innerHTML = stateHtml("alert", "We couldn't load the issues. " + err.message,
+          "Try again", "/dashboard.html", true);
+        return;
+      }
+
+      if (!issues.length) {
+        app.innerHTML = "<h1>" + (isAdmin ? "Admin dashboard" : "Dashboard") + "</h1>" +
+          (isAdmin
+            ? stateHtml("inbox", "No issues have been reported yet.")
+            : stateHtml("inbox", "You haven\u2019t reported any issues yet.", "Report your first issue", "/create.html"));
+        return;
+      }
+
+      const CATS = ["Classroom", "Campus", "Lost & Found", "General"];
+      const count = (s) => issues.filter((i) => i.status === s).length;
+
+      app.innerHTML = `
+        <div class="row between">
+          <h1 style="margin:0">${isAdmin ? "Admin dashboard" : "Dashboard"}</h1>
+          ${isAdmin ? "" : `<a class="btn" href="/create.html">${icon("plus")}New Issue</a>`}
+        </div>
+        <div class="stats" style="margin-top:20px">
+          <div class="card stat"><strong>${count("Open")}</strong>Open</div>
+          <div class="card stat"><strong>${count("In Progress")}</strong>In Progress</div>
+          <div class="card stat"><strong>${count("Resolved")}</strong>Resolved</div>
+        </div>
+        <div class="toolbar">
+          <div>
+            <label for="filter">Filter by status</label>
+            <select id="filter">
+              <option value="">All issues</option>
+              <option>Open</option>
+              <option>In Progress</option>
+              <option>Resolved</option>
+            </select>
+          </div>
+          ${isAdmin ? `
+          <div>
+            <label for="cat">Category</label>
+            <select id="cat">
+              <option value="">All categories</option>
+              ${CATS.map((c) => `<option>${esc(c)}</option>`).join("")}
+            </select>
+          </div>
+          <div>
+            <label for="sort">Sort by</label>
+            <select id="sort">
+              <option value="new">Newest first</option>
+              <option value="category">Category</option>
+            </select>
+          </div>` : ""}
+        </div>
+        <div id="list"></div>
+      `;
+
+      const item = (i) => `<li>
+        <a class="issue-item" href="/issue.html?id=${i.id}">
+          <div class="row between">
+            <h2>${esc(i.title)}</h2>
+            ${badge(i.status)}
+          </div>
+          <span class="tag">
+            ${esc(i.category)} \u00b7 by ${esc(i.author)} \u00b7 ${fmtDate(i.created_at)}
+          </span>
+        </a>
+      </li>`;
+
+      const render = () => {
+        const f = document.getElementById("filter").value;
+        const c = isAdmin ? document.getElementById("cat").value : "";
+        const bySort = isAdmin ? document.getElementById("sort").value === "category" : false;
+        const shown = issues.filter((i) => (!f || i.status === f) && (!c || i.category === c));
+        const list = document.getElementById("list");
+
+        if (!shown.length) {
+          list.innerHTML = `<ul class="issue-list"><li>${stateHtml("inbox", "No issues match these filters.",
+            "Show all issues", "/dashboard.html")}</li></ul>`;
+          return;
+        }
+        if (!bySort) {
+          list.innerHTML = `<ul class="issue-list">${shown.map(item).join("")}</ul>`;
+          return;
+        }
+        list.innerHTML = CATS.filter((cat) => shown.some((i) => i.category === cat))
+          .map((cat) => {
+            const rows = shown.filter((i) => i.category === cat);
+            return `<h3 class="group-title">${esc(cat)} (${rows.length})</h3>
+              <ul class="issue-list">${rows.map(item).join("")}</ul>`;
+          }).join("");
+      };
+
+      ["filter", "cat", "sort"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.onchange = render;
+      });
+      render();
+    })();
+  </script>
+</body>
+</html>

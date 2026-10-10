@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Messages · CampusConnect</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="nav" id="nav"></header>
+  <main class="container" id="app"><p>Loading messages…</p></main>
+
+  <script src="/js/app.js"></script>
+  <script>
+    (async () => {
+      const me = await requireAuth("messages");
+      const isAdmin = me.role === "admin";
+      const app = document.getElementById("app");
+      let studentId = null;        // admin: the open conversation
+      let studentName = "";
+      let lastCount = -1;
+
+      const threadUrl = () =>
+        isAdmin ? "/messages/conversations/" + studentId : "/messages";
+
+      const bubbles = (msgs) => msgs.length
+        ? msgs.map((m) => {
+            const mine = m.sender_id === me.id;
+            return `<div class="bubble ${mine ? "me" : "them"}"><span class="txt">${esc(m.body)}</span>` +
+              `<small>${mine ? "You" : esc(m.sender)}${m.sender_role === "admin" && !mine ? " (Admin)" : ""} · ${fmtDate(m.created_at)}</small></div>`;
+          }).join("")
+        : `<div class="chat-empty">${isAdmin ? "No messages yet. Say hello below." : "No messages yet. Ask the admin anything about your issues."}</div>`;
+
+      function chatHtml(title) {
+        return `
+          <div class="card chat">
+            <div class="chat-head">${esc(title)}</div>
+            <div class="chat-body" id="chat-body"></div>
+            <div id="chat-error" class="alert" role="alert" hidden style="margin:0 12px"></div>
+            <form class="chat-form" id="chat-form">
+              <textarea id="chat-input" maxlength="1000" placeholder="Write a message…" aria-label="Message"></textarea>
+              <button class="btn" type="submit">Send</button>
+            </form>
+          </div>`;
+      }
+
+      async function loadThread(scroll) {
+        const data = await api(threadUrl());
+        const msgs = isAdmin ? data.messages : data;
+        const body = document.getElementById("chat-body");
+        if (!body) return;
+        if (msgs.length !== lastCount) {
+          body.innerHTML = bubbles(msgs);
+          body.scrollTop = body.scrollHeight;
+          lastCount = msgs.length;
+        }
+      }
+
+      function wireForm() {
+        const form = document.getElementById("chat-form");
+        const input = document.getElementById("chat-input");
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+        });
+        form.onsubmit = async (e) => {
+          e.preventDefault();
+          const text = input.value.trim();
+          const err = document.getElementById("chat-error");
+          err.hidden = true;
+          if (!text) return;
+          try {
+            await api(threadUrl(), { method: "POST", body: { body: text } });
+            input.value = "";
+            lastCount = -1;
+            await loadThread();
+            if (isAdmin) refreshList();
+          } catch (ex) {
+            err.innerHTML = icon("alert") + `<span>${esc(ex.message)}</span>`;
+            err.hidden = false;
+          }
+        };
+      }
+
+      /* ---------- student view ---------- */
+      if (!isAdmin) {
+        app.innerHTML = `<h1>Messages</h1>
+          <p class="tag" style="margin-top:-8px">Chat with the campus admin about your issues.</p>` +
+          chatHtml("Conversation with Admin");
+        wireForm();
+        await loadThread();
+        setInterval(() => loadThread().catch(() => {}), 10000);
+        return;
+      }
+
+      /* ---------- admin view ---------- */
+      app.innerHTML = `<h1>Messages</h1>
+        <div class="inbox">
+          <ul class="convo-list" id="convos"></ul>
+          <div id="pane"><div class="card"><div class="chat-empty" style="padding:40px 0">Select a conversation.</div></div></div>
+        </div>`;
+
+      async function refreshList() {
+        const list = await api("/messages/conversations");
+        const el = document.getElementById("convos");
+        el.innerHTML = list.length
+          ? list.map((c) => `<li><button class="convo ${c.student_id === studentId ? "active" : ""}" data-id="${c.student_id}" data-name="${esc(c.name)}">
+              <strong><span>${esc(c.name)}</span>${c.unread ? `<span class="count">${c.unread}</span>` : ""}</strong>
+              <span class="preview">${esc(c.last_body)}</span>
+            </button></li>`).join("")
+          : `<li class="tag">No conversations yet. Students can message you from their Messages page, or use “Message” on an issue.</li>`;
+        el.querySelectorAll(".convo").forEach((b) => (b.onclick = () => openConvo(+b.dataset.id, b.dataset.name)));
+      }
+
+      async function openConvo(id, name) {
+        studentId = id; studentName = name; lastCount = -1;
+        document.getElementById("pane").innerHTML = chatHtml(name);
+        wireForm();
+        try {
+          await loadThread();
+        } catch (ex) {
+          document.getElementById("pane").innerHTML = stateHtml("alert", ex.message);
+          return;
+        }
+        refreshList();
+        const n = document.getElementById("msg-count");
+        api("/messages/unread").then((r) => { if (n) { n.textContent = r.unread; n.hidden = r.unread < 1; } });
+      }
+
+      await refreshList();
+      const want = new URLSearchParams(location.search).get("student");
+      if (/^\d+$/.test(want || "")) {
+        try {
+          const d = await api("/messages/conversations/" + want);
+          await openConvo(+want, d.student.name);
+        } catch (_) {}
+      }
+      setInterval(() => {
+        refreshList().catch(() => {});
+        if (studentId) loadThread().catch(() => {});
+      }, 10000);
+    })();
+  </script>
+</body>
+</html>

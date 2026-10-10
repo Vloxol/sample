@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FAQ · CampusConnect</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="nav" id="nav"></header>
+  <main class="container" style="max-width:760px">
+    <h1>Frequently asked questions</h1>
+    <p class="tag" style="margin-top:-8px">Answers about CampusConnect and tips for common campus problems.</p>
+    <div class="faq-search">
+      <label for="q">Search</label>
+      <input id="q" type="search" placeholder="e.g. Wi-Fi, ID card, status" autocomplete="off" />
+    </div>
+    <div id="faq"></div>
+  </main>
+
+  <script src="/js/app.js"></script>
+  <script>
+    const FAQ = [
+      { group: "About CampusConnect", items: [
+        ["What is CampusConnect?", "<p>CampusConnect is a simple place for students to report problems around campus, such as a broken projector or a lost ID card, and follow each report until it is resolved.</p>"],
+        ["How do I report an issue?", "<p>Log in, open <b>New Issue</b>, add a short title and a description, choose a category and submit. Your issue appears on your dashboard straight away.</p>"],
+        ["Who can see my issues?", "<p>You can see your own issues. The campus admin can see every issue so they can review and respond. Other students cannot see your issues.</p>"],
+        ["What do the statuses mean?", "<p><b>Open</b>: your report has been received. <b>In Progress</b>: someone is working on it. <b>Resolved</b>: the problem has been dealt with.</p><p>Only the admin can change a status.</p>"],
+        ["Can I change the status of my own issue?", "<p>No. The admin updates the status so everyone sees the same progress. If you think the status is wrong, send the admin a message.</p>"],
+        ["How will I know the admin has responded?", "<p>There are two ways. The admin can leave a note on your issue, which appears on the issue page under <b>Notes from admin</b>. The admin can also message you directly, and a red counter appears next to <b>Messages</b> in the menu when you have unread messages.</p>"],
+        ["How do I contact the admin?", "<p>Open <b>Messages</b> in the menu and write to the admin. Include the issue title so it is easy to find.</p>"],
+        ["Can I edit or delete an issue after submitting it?", "<p>Not at the moment. If you made a mistake, message the admin or submit a new issue with the correct details.</p>"],
+        ["I forgot my password. What can I do?", "<p>Password reset is not available yet. Contact the campus admin or the team running CampusConnect for help.</p>"],
+        ["Is CampusConnect for emergencies?", "<p>No. For anything urgent or unsafe, such as a fire, a medical emergency or a threat to safety, contact campus security or the emergency services directly.</p>"],
+      ]},
+      { group: "Writing a good report", items: [
+        ["What should I include in my report?", "<p>Say <b>what</b> is wrong, <b>where</b> it is (building, floor, room) and <b>when</b> you noticed it. Specific reports are fixed faster.</p>"],
+        ["Which category should I choose?", "<p><b>Classroom</b>: fans, lights, projectors, furniture. <b>Campus</b>: Wi-Fi, cleanliness, water coolers and common areas. <b>Lost &amp; Found</b>: lost or found belongings. <b>General</b>: library, lab equipment and anything else.</p>"],
+        ["Should I report the same problem twice?", "<p>No. If something is already reported, message the admin with extra details instead of creating a duplicate.</p>"],
+      ]},
+      { group: "Common campus issues", items: [
+        ["The Wi-Fi is not working or is very slow", "<p>First try forgetting the network and reconnecting, then restart your device. If it still fails, report it under <b>Campus</b> and mention the building, the room and the time. Note whether it affects only you or everyone around you.</p>"],
+        ["I lost my ID card", "<p>Report it under <b>Lost &amp; Found</b> with where you last had it. Also tell your department or the administration office, because they issue replacements and can block a lost card if needed.</p>"],
+        ["I found someone's belongings", "<p>Submit a <b>Lost &amp; Found</b> issue describing the item and where you found it, but leave out a detail only the owner would know. Keep the item safe or hand it to the security desk or administration office.</p>"],
+        ["A fan, light or projector is not working in a classroom", "<p>Report it under <b>Classroom</b> with the building and room number. If a class is affected right now, also tell your instructor so they can arrange another room.</p>"],
+        ["The water cooler is out of order or the water tastes odd", "<p>Report it under <b>Campus</b> with the exact location. Avoid drinking from it until it is checked.</p>"],
+        ["A washroom or common area is dirty", "<p>Report it under <b>Campus</b> with the location and what needs attention. Cleanliness issues are easiest to resolve when the exact spot is given.</p>"],
+        ["I have a problem with a library service", "<p>For missing books, opening hours, fines or seating, report it under <b>General</b>. For a specific borrowing question, the library desk can often answer immediately.</p>"],
+        ["A lab computer or equipment is broken", "<p>Report it under <b>General</b> with the lab name, the equipment number or label, and what went wrong. Do not try to repair equipment yourself.</p>"],
+        ["I am not sure my problem fits any category", "<p>Choose <b>General</b> and describe it clearly. The admin can still review it.</p>"],
+        ["How long will it take to get fixed?", "<p>It depends on the problem. Simple fixes can be quick, while repairs may need outside help. Watch your issue's status and notes, and message the admin if there has been no update for a while.</p>"],
+      ]},
+    ];
+
+    const root = document.getElementById("faq");
+    function render(q) {
+      q = (q || "").trim().toLowerCase();
+      const html = FAQ.map((g) => {
+        const items = g.items.filter(([t, a]) => !q || (t + " " + a.replace(/<[^>]+>/g, " ")).toLowerCase().includes(q));
+        return items.length
+          ? `<section class="faq-group"><h2>${g.group}</h2>${items.map(([t, a]) =>
+              `<details class="faq" ${q ? "open" : ""}><summary>${t}</summary><div class="answer">${a}</div></details>`).join("")}</section>`
+          : "";
+      }).join("");
+      root.innerHTML = html || stateHtml("inbox", "No questions match your search.");
+    }
+    document.getElementById("q").oninput = (e) => render(e.target.value);
+    render("");
+
+    (async () => {
+      const el = document.getElementById("nav");
+      if (getToken()) {
+        try { renderNav("faq", await api("/me")); return; } catch (_) {}
+      }
+      el.innerHTML = `<div class="container nav-inner">
+        <a class="brand" href="/landing.html">Campus<span>Connect</span></a>
+        <nav class="nav-links">
+          <a class="nav-link" href="/landing.html">Home</a>
+          <a class="nav-link active" href="/faq.html">FAQ</a>
+          <a class="nav-link" href="/index.html">Log in</a>
+        </nav></div>`;
+    })();
+  </script>
+</body>
+</html>

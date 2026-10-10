@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>New Issue \u00b7 CampusConnect</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="nav" id="nav"></header>
+  <main class="container narrow">
+    <h1>Report an issue</h1>
+    <div class="card stack">
+      <div id="error" class="alert" role="alert" hidden></div>
+
+      <form id="form" class="stack" novalidate>
+        <div>
+          <label for="title">Title</label>
+          <input id="title" type="text" maxlength="100" required
+                 placeholder="e.g. Projector not working in Room 204" />
+        </div>
+        <div>
+          <label for="category">Category</label>
+          <select id="category" required>
+            <option value="">Select a category</option>
+            <option>Classroom</option>
+            <option>Campus</option>
+            <option>Lost &amp; Found</option>
+            <option>General</option>
+          </select>
+        </div>
+        <div>
+          <label for="description">Description</label>
+          <textarea id="description" maxlength="1000" required
+                    placeholder="Describe what's wrong and where."></textarea>
+        </div>
+        <div class="row">
+          <button class="btn" id="submit" type="submit">Submit Issue</button>
+          <a class="btn secondary" href="/dashboard.html">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <script src="/js/app.js"></script>
+  <script>
+    requireAuth("create");
+    const $ = (id) => document.getElementById(id);
+
+    function showError(msg) {
+      $("error").innerHTML = icon("alert") + `<span>${esc(msg)}</span>`;
+      $("error").hidden = false;
+    }
+
+    $("form").onsubmit = async (e) => {
+      e.preventDefault();
+      $("error").hidden = true;
+
+      const title = $("title").value.trim();
+      const category = $("category").value;
+      const description = $("description").value.trim();
+
+      if (title.length < 3) return showError("Enter a title of at least 3 characters.");
+      if (!category) return showError("Select a category.");
+      if (!description) return showError("Add a short description.");
+
+      $("submit").disabled = true;
+      try {
+        const res = await api("/issues", {
+          method: "POST",
+          body: { title, category, description },
+        });
+        location.href = "/issue.html?id=" + res.id;
+      } catch (err) {
+        showError(err.message);
+        $("submit").disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>

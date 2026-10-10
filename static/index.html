@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Log in \u00b7 CampusConnect</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <main class="container narrow">
+    <a class="brand" href="/landing.html" style="display:inline-block;font-size:1.3rem;margin-bottom:16px">Campus<span>Connect</span></a>
+    <div class="card modal stack">
+      <div>
+        <h1 id="heading" style="margin-bottom:6px">Log in</h1>
+        <p id="sub" class="tag" style="margin:0">Welcome back. Log in to report or track campus issues.</p>
+      </div>
+
+      <div id="error" class="alert" role="alert" hidden></div>
+
+      <form id="form" class="stack" novalidate>
+        <div id="name-wrap" hidden>
+          <label for="name">Full name</label>
+          <input id="name" type="text" autocomplete="name" maxlength="80" />
+        </div>
+        <div>
+          <label for="email">Email</label>
+          <input id="email" type="email" autocomplete="email" required />
+        </div>
+        <div>
+          <label for="password">Password</label>
+          <input id="password" type="password" autocomplete="current-password" minlength="6" required />
+        </div>
+        <button class="btn" id="submit" type="submit">Log in</button>
+      </form>
+
+      <p class="tag" style="margin:0">
+        <span id="switch-text">New here?</span>
+        <button class="link-btn" id="switch" type="button">Create an account</button>
+      </p>
+    </div>
+  </main>
+
+  <script src="/js/app.js"></script>
+  <script>
+    if (getToken()) location.href = "/dashboard.html";
+    let mode = "login";
+    const $ = (id) => document.getElementById(id);
+
+    function setMode(m) {
+      mode = m;
+      const reg = m === "register";
+      $("heading").textContent = reg ? "Create account" : "Log in";
+      $("sub").textContent = reg
+        ? "Register with your college email to get started."
+        : "Welcome back. Log in to report or track campus issues.";
+      $("submit").textContent = reg ? "Create account" : "Log in";
+      $("switch-text").textContent = reg ? "Already registered?" : "New here?";
+      $("switch").textContent = reg ? "Log in" : "Create an account";
+      $("name-wrap").hidden = !reg;
+      $("password").autocomplete = reg ? "new-password" : "current-password";
+      $("error").hidden = true;
+    }
+
+    $("switch").onclick = () => setMode(mode === "login" ? "register" : "login");
+
+    function showError(msg) {
+      $("error").innerHTML = icon("alert") + `<span>${esc(msg)}</span>`;
+      $("error").hidden = false;
+    }
+
+    $("form").onsubmit = async (e) => {
+      e.preventDefault();
+      $("error").hidden = true;
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      const name = $("name").value.trim();
+
+      if (mode === "register" && !name) return showError("Enter your full name.");
+      if (!email || !password) return showError("Enter your email and password.");
+      if (password.length < 6) return showError("Password must be at least 6 characters.");
+
+      $("submit").disabled = true;
+      try {
+        const body = mode === "register" ? { name, email, password } : { email, password };
+        const data = await api(mode === "register" ? "/register" : "/login", {
+          method: "POST", body, auth: false,
+        });
+        setToken(data.token);
+        location.href = "/dashboard.html";
+      } catch (err) {
+        showError(err.message);
+        $("submit").disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>
